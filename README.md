@@ -22,3 +22,47 @@
   * **深度角色扮演**: 基于强大的 **LLM** 模型，确保每个角色都严格遵守其人设、背景和说话风格，提供高质量的对话内容。
   * **角色专属技能**: 特定角色拥有超越普通聊天的独特技能，如苏格拉底的“诘问式思考”、福尔摩斯的“演绎法推理”等，增加了互动性和趣味性。
   * **简洁的用户界面**: 专注核心体验，提供清晰的角色选择和对话界面。
+
+## 核心聊天接口
+
+### `POST /api/chat`
+
+**功能:** 发送用户当前的消息和对话历史给后端，获取AI角色的文本回复。
+
+**请求体 (Request Body - JSON):**
+
+```json
+{
+  "characterId": "socrates",
+  "message": "什么是美德？",
+  "history": [
+    {
+      "role": "user",
+      "content": "你好，苏格<em>底先生。"
+    },
+    {
+      "role": "assistant",
+      "content": "你好，年轻的思考者。你今天带来了什么问题？"
+    }
+  ]
+}
+```
+
+**字段说明:**
+* `characterId` (string, 必填): 角色的唯一标识符，用于后端加载对应的Prompt。
+* `message` (string, 必填): 用户当前输入的最新一句话。
+* `history` (array of objects, 必填): 最近的对话历史，用于实现多轮对话记忆。
+    * `role` (string): 角色，`"user"` 代表用户, `"assistant"` 代表AI。
+    * `content` (string): 该角色的发言内容。
+
+**响应体 (Response Body - JSON):**
+
+```json
+{
+  "responseText": "一个好问题！在我们探讨它之前，你认为一个‘好’的人应该具备哪些品质呢？",
+  "audioContent": "BASE64_ENCODED_AUDIO_STRING" 
+}
+```
+**字段说明:**
+* `responseText` (string): AI生成的文本回复。
+* `audioContent` (string, 可选): 后端生成的音频文件内容的Base64编码字符串。
