@@ -53,17 +53,17 @@ def get_all_characters() -> list:
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    if all(k in data for k in ["id", "name", "description"]):
+                    if all(k in data for k in ["id", "name", "description", "imageUrl"]):
                         characters.append({
                             "id": data["id"],
                             "name": data["name"],
-                            "description": data["description"]
+                            "description": data["description"],
+                            "imageUrl": data["imageUrl"]
                         })
                     else:
-                        logger.warning(f"角色文件 {filename} 缺少必要字段 (id, name, description)，已跳过。")
+                        logger.warning(f"角色文件 {filename} 缺少必要字段 (id, name, description, imageUrl)，已跳过。")
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"加载或读取角色文件 {filename} 时出错: {e}，已跳过。")
             except Exception as e:
                 logger.critical(f"处理角色文件 {filename} 时发生未知严重错误: {e}，已跳过。", exc_info=True)
     return characters
-
