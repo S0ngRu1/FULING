@@ -22,9 +22,7 @@ let isTTSEnabled = false; // 用于跟踪TTS是否已被用户交互“激活”
 
 // --- 语音合成 (TTS) ---
 const speakText = (text) => {
-  // 确保 text 是一个有效的字符串
   if (typeof text !== 'string' || !text.trim()) return;
-
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'zh-CN';
@@ -71,8 +69,6 @@ const handleSendMessage = async () => {
   const userInput = input.value.trim();
   if (!userInput || isLoading.value) return;
 
-  // 浏览器音频自动播放策略要求首次播放必须由用户直接触发。
-  // 我们在第一次发送消息时，播放一个无声的片段来“解锁”TTS。
   if (!isTTSEnabled) {
     const silentUtterance = new SpeechSynthesisUtterance(" ");
     silentUtterance.volume = 0;
@@ -85,7 +81,7 @@ const handleSendMessage = async () => {
   isLoading.value = true;
 
   const history = messages.value.slice(0, -1).map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'assistant', // 确保role正确
+      role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content
   }));
 
@@ -96,7 +92,6 @@ const handleSendMessage = async () => {
       history,
     });
 
-    // *** 核心修复：使用正确的 'response' 键 ***
     const aiResponseText = response.data.response;
     const aiMessage = { role: 'assistant', content: aiResponseText };
 
@@ -163,12 +158,32 @@ onMounted(async () => {
 
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
                 <div v-if="messages.length === 0" class="text-center text-white/50 mt-10">开始对话吧</div>
+
                 <div v-for="(msg, index) in messages" :key="index" :class="['flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : '']">
                     <img :src="msg.role === 'user' ? 'https://placehold.co/40x40/FBBF24/000000?text=我' : character.imageUrl" class="w-10 h-10 rounded-full object-cover shrink-0" />
-                    <div :class="['max-w-xl p-3 rounded-xl', msg.role === 'user' ? 'bg-yellow-500 text-black' : 'bg-gray-700']">
+
+                    <!-- 用户消息气泡 -->
+                    <div v-if="msg.role === 'user'" class="max-w-xl p-4 rounded-xl bg-yellow-500 text-black">
                         <p style="white-space: pre-wrap;">{{ msg.content }}</p>
                     </div>
+
+                    <!-- AI 消息气泡 (容器) -->
+                    <div v-else class="relative group pt-8">
+                        <!-- 语音回放按钮 -->
+                        <button @click="speakText(msg.content)"
+                                class="absolute top-0 left-4 z-10 flex items-center gap-1.5 pl-2 pr-3 py-1 rounded-full bg-slate-600 text-white/70 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-slate-500 transition-all duration-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            </svg>
+                            <span class="text-xs font-semibold">回放</span>
+                        </button>
+                        <!-- 聊天气泡本体 -->
+                        <div class="max-w-xl px-5 py-4 rounded-2xl bg-gray-800 text-white">
+                            <p style="white-space: pre-wrap;">{{ msg.content }}</p>
+                        </div>
+                    </div>
                 </div>
+
                 <div v-if="isLoading" class="flex gap-3">
                     <img :src="character.imageUrl" class="w-10 h-10 rounded-full object-cover" />
                     <div class="max-w-xl p-3 rounded-xl bg-gray-700 flex items-center">
