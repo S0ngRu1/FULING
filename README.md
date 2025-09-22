@@ -27,7 +27,7 @@
 
 ### `POST /api/chat`
 
-**功能:** 发送用户当前的消息和对话历史给后端，获取AI角色的文本回复。
+**功能:** 发送用户消息和对话历史，获取AI角色的回复及其当前情绪状态。
 
 **请求体 (Request Body - JSON):**
 
@@ -38,7 +38,7 @@
   "history": [
     {
       "role": "user",
-      "content": "你好，苏格<em>底先生。"
+      "content": "你好，苏格拉底先生。"
     },
     {
       "role": "assistant",
@@ -60,9 +60,57 @@
 ```json
 {
   "responseText": "一个好问题！在我们探讨它之前，你认为一个‘好’的人应该具备哪些品质呢？",
-  "audioContent": "BASE64_ENCODED_AUDIO_STRING" 
+  "emotion": "沉思"
 }
 ```
 **字段说明:**
 * `responseText` (string): AI生成的文本回复。
-* `audioContent` (string, 可选): 后端生成的音频文件内容的Base64编码字符串。
+* `emotion`  (string): AI根据对话计算出的当前情绪状态。
+
+
+---
+
+## 对话摘要接口
+
+### `POST /api/summarize`
+
+**功能:** 在对话结束时，由前端发送完整的对话历史，后端调用LLM进行摘要并储存，用于实现角色的长程记忆。
+
+**请求体 (Request Body - JSON):**
+
+```json
+{
+  "characterId": "socrates",
+  "history": [
+    {
+      "role": "user",
+      "content": "你好，苏格拉底先生。"
+    },
+    {
+      "role": "assistant",
+      "content": "你好，年轻的思考者。你今天带来了什么问题？"
+    },
+    {
+      "role": "user",
+      "content": "什么是美德？"
+    },
+    {
+      "role": "assistant",
+      "content": "一个好问题！在我们探讨它之前，你认为一个‘好’的人应该具备哪些品质呢？"
+    }
+  ]
+}
+```
+* **字段说明:** 与 `/api/chat` 的请求结构类似，但`history`字段包含本次对话的完整记录。
+
+**响应体 (Response Body - JSON):**
+
+```json
+{
+  "status": "success",
+  "summary": "本次对话中，用户与苏格拉底探讨了关于“美德”的定义，苏格拉底通过反问引导用户思考“好”的品质。"
+}
+```
+* **字段说明:**
+    * `status` (string): 表示操作是否成功。
+    * `summary` (string): LLM生成的本次对话摘要。
