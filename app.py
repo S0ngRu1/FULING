@@ -7,17 +7,16 @@
 """
 
 """
+from dotenv import load_dotenv
+load_dotenv()
 
-from utils.logger import logger
-from services import chat_service, character_manager
-from errors.error_handlers import api_error_handler, register_error_handlers
-from errors.exceptions import InvalidAPIRequest
+from backend.utils.logger import logger
+from backend.services import chat_service, character_manager
+from backend.errors.error_handlers import api_error_handler, register_error_handlers
+from backend.errors.exceptions import InvalidAPIRequest
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # 初始化Flask应用
 app = Flask(__name__)

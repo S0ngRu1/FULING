@@ -12,7 +12,8 @@ import json
 from backend.utils.logger import logger
 from backend.errors.exceptions import CharacterNotFound
 
-CHARACTERS_DIR = "characters"
+_SERVICE_DIR = os.path.dirname(__file__)
+CHARACTERS_DIR = os.path.abspath(os.path.join(_SERVICE_DIR, '..', 'characters'))
 
 def get_character_prompt(character_id: str) -> str:
     """
