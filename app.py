@@ -58,6 +58,7 @@ def chat():
     )
 
     logger.info(f"成功生成对角色 '{character_id}' 的回复")
+    logger.info(response_data)
     return jsonify(response_data)
 
 # --- 启动应用 ---

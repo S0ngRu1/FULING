@@ -10,49 +10,84 @@ const props = defineProps({
 const API_BASE_URL = 'http://localhost:5000';
 const router = useRouter();
 
+// --- 响应式状态 ---
 const character = ref(null);
 const messages = ref([]);
 const input = ref('');
 const isLoading = ref(false);
+const isListening = ref(false);
 const chatEndRef = ref(null);
 let recognition;
+let isTTSEnabled = false; // 用于跟踪TTS是否已被用户交互“激活”
 
+// --- 语音合成 (TTS) ---
 const speakText = (text) => {
+  // 确保 text 是一个有效的字符串
+  if (typeof text !== 'string' || !text.trim()) return;
+
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'zh-CN';
   window.speechSynthesis.speak(utterance);
 };
 
+// 语音识别 (STT)
 const setupSpeechRecognition = () => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return;
-
+  if (!SpeechRecognition) {
+    console.warn("浏览器不支持语音识别。");
+    return;
+  }
   recognition = new SpeechRecognition();
   recognition.lang = 'zh-CN';
   recognition.interimResults = false;
+
+  recognition.onstart = () => isListening.value = true;
+  recognition.onend = () => isListening.value = false;
 
   recognition.onresult = (event) => {
     input.value = event.results[0][0].transcript;
     handleSendMessage();
   };
 
-  recognition.onerror = (event) => console.error("语音识别错误:", event.error);
+  recognition.onerror = (event) => {
+    console.error("语音识别错误:", event.error);
+    isListening.value = false;
+  };
 };
 
 const startListening = () => {
-    if(recognition) recognition.start();
+    if(recognition && !isLoading.value) {
+        try {
+            recognition.start();
+        } catch(e) {
+            console.error("无法启动语音识别:", e);
+        }
+    }
 };
 
+// --- 核心聊天逻辑 ---
 const handleSendMessage = async () => {
   const userInput = input.value.trim();
   if (!userInput || isLoading.value) return;
+
+  // 浏览器音频自动播放策略要求首次播放必须由用户直接触发。
+  // 我们在第一次发送消息时，播放一个无声的片段来“解锁”TTS。
+  if (!isTTSEnabled) {
+    const silentUtterance = new SpeechSynthesisUtterance(" ");
+    silentUtterance.volume = 0;
+    window.speechSynthesis.speak(silentUtterance);
+    isTTSEnabled = true;
+  }
 
   messages.value.push({ role: 'user', content: userInput });
   input.value = '';
   isLoading.value = true;
 
-  const history = messages.value.slice(0, -1).map(msg => ({ role: msg.role, content: msg.content }));
+  const history = messages.value.slice(0, -1).map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant', // 确保role正确
+      content: msg.content
+  }));
 
   try {
     const response = await axios.post(`${API_BASE_URL}/api/chat`, {
@@ -60,19 +95,26 @@ const handleSendMessage = async () => {
       message: userInput,
       history,
     });
-    const aiMessage = { role: 'assistant', content: response.data.responseText };
+
+    // *** 核心修复：使用正确的 'response' 键 ***
+    const aiResponseText = response.data.response;
+    const aiMessage = { role: 'assistant', content: aiResponseText };
+
     messages.value.push(aiMessage);
-    speakText(response.data.responseText);
+    speakText(aiResponseText);
+
   } catch (error) {
     console.error("发送消息失败:", error);
-    const errorMsg = { role: 'assistant', content: '抱歉，我好像断线了... 请稍后再试。' };
+    const errorMsgContent = '抱歉，我的思维出现了一点混乱。';
+    const errorMsg = { role: 'assistant', content: errorMsgContent };
     messages.value.push(errorMsg);
-    speakText(errorMsg.content);
+    speakText(errorMsgContent);
   } finally {
     isLoading.value = false;
   }
 };
 
+// --- Vue生命周期钩子 ---
 watch(messages, () => {
   nextTick(() => {
     chatEndRef.value?.scrollIntoView({ behavior: 'smooth' });
@@ -99,21 +141,12 @@ onMounted(async () => {
     <div v-if="character" class="flex h-full w-full">
         <!-- 左侧角色展示区 -->
         <div class="hidden lg:block w-1/3 h-full shrink-0 group relative overflow-hidden">
-            <!-- 角色图片作为背景，默认放大，悬浮时恢复 -->
-            <div
-                class="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-in-out group-hover:scale-100 scale-110"
-                :style="{ backgroundImage: `url(${character.imageUrl})` }">
-            </div>
-            <!-- 渐变蒙版，确保文字清晰 -->
+            <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-in-out group-hover:scale-100 scale-110" :style="{ backgroundImage: `url(${character.imageUrl})` }"></div>
             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-
-            <!-- 文字内容容器 -->
             <div class="relative z-10 flex flex-col justify-end h-full p-8 text-white">
-                <!-- 角色介绍 (默认隐藏，悬浮时显示) -->
                 <div class="transition-opacity duration-300 opacity-0 group-hover:opacity-100 mb-4">
                     <p class="text-white/80 line-clamp-6">{{ character.description }}</p>
                 </div>
-                <!-- 角色名称 (始终显示) -->
                 <h1 class="text-4xl font-bold">{{ character.name }}</h1>
             </div>
         </div>
@@ -129,17 +162,13 @@ onMounted(async () => {
             </header>
 
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
-                <div v-if="messages.length === 0" class="text-center text-white/50 mt-10">
-                    开始对话吧
-                </div>
-
+                <div v-if="messages.length === 0" class="text-center text-white/50 mt-10">开始对话吧</div>
                 <div v-for="(msg, index) in messages" :key="index" :class="['flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : '']">
                     <img :src="msg.role === 'user' ? 'https://placehold.co/40x40/FBBF24/000000?text=我' : character.imageUrl" class="w-10 h-10 rounded-full object-cover shrink-0" />
                     <div :class="['max-w-xl p-3 rounded-xl', msg.role === 'user' ? 'bg-yellow-500 text-black' : 'bg-gray-700']">
                         <p style="white-space: pre-wrap;">{{ msg.content }}</p>
                     </div>
                 </div>
-
                 <div v-if="isLoading" class="flex gap-3">
                     <img :src="character.imageUrl" class="w-10 h-10 rounded-full object-cover" />
                     <div class="max-w-xl p-3 rounded-xl bg-gray-700 flex items-center">
@@ -153,14 +182,18 @@ onMounted(async () => {
 
             <footer class="p-4 border-t border-white/10 shrink-0">
                 <form @submit.prevent="handleSendMessage" class="flex items-center bg-gray-800 rounded-xl p-2 gap-2">
-                    <button type="button" @click="startListening" class="bg-transparent text-white/70 hover:text-yellow-400 p-2.5 rounded-full">
+                    <button type="button" @click="startListening" :disabled="isLoading"
+                            :class="['p-2.5 rounded-full transition-colors', isListening ? 'text-yellow-400 animate-pulse' : 'text-white/70 hover:text-yellow-400']">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
                     </button>
-                    <input v-model="input" type="text" placeholder="输入消息或点击麦克风..." class="w-full bg-transparent px-4 py-2 text-white placeholder-gray-400 focus:outline-none" :disabled="isLoading" @keyup.enter="handleSendMessage" />
+                    <input v-model="input" type="text"
+                           :placeholder="isListening ? '正在聆听...' : '输入消息或点击麦克风...'"
+                           class="w-full bg-transparent px-4 py-2 text-white placeholder-gray-400 focus:outline-none"
+                           :disabled="isLoading" @keyup.enter="handleSendMessage" />
                     <button type="submit" :disabled="isLoading || !input.trim()" class="bg-yellow-500 rounded-lg p-2.5 hover:bg-yellow-400 disabled:bg-gray-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7 7-7" /></svg>
                     </button>
                 </form>
             </footer>
