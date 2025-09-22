@@ -17,10 +17,10 @@ from backend.errors.exceptions import KimiServiceError, ApiResponseParseError
 
 # --- 初始化 Kimi API 客户端 ---
 client = OpenAI(
-    api_key=os.getenv("MOONSHOT_API_KEY"),
-    base_url=os.getenv("MOONSHOT_API_BASE"),
+    api_key=os.getenv("API_KEY"),
+    base_url=os.getenv("API_BASE"),
 )
-llm_model = os.getenv("MOONSHOT_MODEL")
+llm_model = os.getenv("MODEL")
 
 
 def process_chat_interaction(character_id: str, user_message: str, history: list) -> dict:

@@ -15,8 +15,6 @@ from dotenv import load_dotenv
 load_dotenv()
 from backend.services import chat_service
 from backend.services import character_manager
-from backend.errors.exceptions import FulingException, KimiServiceError
-
 
 class TestChatService(unittest.TestCase):
 
