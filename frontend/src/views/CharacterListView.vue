@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5123';
 const characters = ref([]);
 const loading = ref(true);
 

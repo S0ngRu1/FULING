@@ -12,12 +12,14 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from dotenv import load_dotenv
+
+from backend.errors.exceptions import MissingParameterError
+
 load_dotenv()
 
 from backend.utils.logger import logger
-from backend.services import chat_service, character_manager
+from backend.services import chat_service, character_manager, tts_service
 from backend.errors.error_handlers import api_error_handler, register_error_handlers
-from backend.errors.exceptions import InvalidAPIRequest
 
 
 # 初始化Flask应用
@@ -61,7 +63,28 @@ def chat():
     logger.info(response_data)
     return jsonify(response_data)
 
+
+@app.route('/api/speech', methods=['POST'])
+@api_error_handler
+def generate_audio():
+    """新的TTS接口，根据文本和音色类型生成语音。"""
+    data = request.get_json()
+    text = data.get("text")
+    voice_type = data.get("voiceType")
+
+    if not text or not voice_type:
+        raise MissingParameterError("请求缺少 'text' 或 'voiceType' 参数。")
+
+    logger.info(f"收到语音生成请求，音色: {voice_type}")
+
+    # 调用新的TTS服务
+    base64_audio = tts_service.generate_speech(text, voice_type)
+
+    logger.info("成功生成Base64音频数据并返回给前端。")
+    return jsonify({"audioData": base64_audio})
+
+
 # --- 启动应用 ---
 if __name__ == '__main__':
     logger.info("Fuling应用启动...")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5123)

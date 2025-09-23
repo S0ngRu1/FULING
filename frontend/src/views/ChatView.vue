@@ -7,10 +7,9 @@ const props = defineProps({
   characterId: String
 });
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5123';
 const router = useRouter();
 
-// --- 响应式状态 ---
 const character = ref(null);
 const messages = ref([]);
 const input = ref('');
@@ -18,36 +17,49 @@ const isLoading = ref(false);
 const isListening = ref(false);
 const chatEndRef = ref(null);
 let recognition;
-let isTTSEnabled = false; // 用于跟踪TTS是否已被用户交互“激活”
+let currentAudio = null; // 用于控制音频播放
 
-// --- 语音合成 (TTS) ---
-const speakText = (text) => {
-  if (typeof text !== 'string' || !text.trim()) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'zh-CN';
-  window.speechSynthesis.speak(utterance);
+// --- 专业TTS播放模块 ---
+const playAudioFromText = async (text) => {
+  if (typeof text !== 'string' || !text.trim() || !character.value?.voiceType) return;
+
+  // 如果有正在播放的音频，先停止
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+  }
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/speech`, {
+      text: text,
+      voiceType: character.value.voiceType
+    });
+
+    const base64Audio = response.data.audioData;
+    const audioSrc = `data:audio/mp3;base64,${base64Audio}`;
+
+    currentAudio = new Audio(audioSrc);
+    currentAudio.play();
+
+  } catch (error) {
+    console.error("生成或播放语音失败:", error);
+  }
 };
 
-// 语音识别 (STT)
+// --- 语音识别 (STT) 模块 ---
+// ... (此部分代码不变)
 const setupSpeechRecognition = () => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    console.warn("浏览器不支持语音识别。");
-    return;
-  }
+  if (!SpeechRecognition) { console.warn("浏览器不支持语音识别。"); return; }
   recognition = new SpeechRecognition();
   recognition.lang = 'zh-CN';
   recognition.interimResults = false;
-
   recognition.onstart = () => isListening.value = true;
   recognition.onend = () => isListening.value = false;
-
   recognition.onresult = (event) => {
     input.value = event.results[0][0].transcript;
     handleSendMessage();
   };
-
   recognition.onerror = (event) => {
     console.error("语音识别错误:", event.error);
     isListening.value = false;
@@ -56,11 +68,7 @@ const setupSpeechRecognition = () => {
 
 const startListening = () => {
     if(recognition && !isLoading.value) {
-        try {
-            recognition.start();
-        } catch(e) {
-            console.error("无法启动语音识别:", e);
-        }
+        try { recognition.start(); } catch(e) { console.error("无法启动语音识别:", e); }
     }
 };
 
@@ -68,13 +76,6 @@ const startListening = () => {
 const handleSendMessage = async () => {
   const userInput = input.value.trim();
   if (!userInput || isLoading.value) return;
-
-  if (!isTTSEnabled) {
-    const silentUtterance = new SpeechSynthesisUtterance(" ");
-    silentUtterance.volume = 0;
-    window.speechSynthesis.speak(silentUtterance);
-    isTTSEnabled = true;
-  }
 
   messages.value.push({ role: 'user', content: userInput });
   input.value = '';
@@ -94,37 +95,29 @@ const handleSendMessage = async () => {
 
     const aiResponseText = response.data.response;
     const aiMessage = { role: 'assistant', content: aiResponseText };
-
     messages.value.push(aiMessage);
-    speakText(aiResponseText);
+
+    // **核心改动**: 调用新的专业TTS函数
+    playAudioFromText(aiResponseText);
 
   } catch (error) {
     console.error("发送消息失败:", error);
     const errorMsgContent = '抱歉，我的思维出现了一点混乱。';
-    const errorMsg = { role: 'assistant', content: errorMsgContent };
-    messages.value.push(errorMsg);
-    speakText(errorMsgContent);
+    messages.value.push({ role: 'assistant', content: errorMsgContent });
   } finally {
     isLoading.value = false;
   }
 };
 
 // --- Vue生命周期钩子 ---
-watch(messages, () => {
-  nextTick(() => {
-    chatEndRef.value?.scrollIntoView({ behavior: 'smooth' });
-  });
-}, { deep: true });
+watch(messages, () => nextTick(() => chatEndRef.value?.scrollIntoView({ behavior: 'smooth' })), { deep: true });
 
 onMounted(async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/characters`);
     const currentChar = response.data.find(c => c.id === props.characterId);
-    if (currentChar) {
-      character.value = currentChar;
-    } else {
-      router.push('/');
-    }
+    if (currentChar) character.value = currentChar;
+    else router.push('/');
   } catch (error) {
     console.error("获取角色信息失败:", error);
   }
@@ -157,33 +150,27 @@ onMounted(async () => {
             </header>
 
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- ... (消息渲染部分不变) ... -->
                 <div v-if="messages.length === 0" class="text-center text-white/50 mt-10">开始对话吧</div>
-
                 <div v-for="(msg, index) in messages" :key="index" :class="['flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : '']">
                     <img :src="msg.role === 'user' ? 'https://placehold.co/40x40/FBBF24/000000?text=我' : character.imageUrl" class="w-10 h-10 rounded-full object-cover shrink-0" />
-
-                    <!-- 用户消息气泡 -->
                     <div v-if="msg.role === 'user'" class="max-w-xl p-4 rounded-xl bg-yellow-500 text-black">
                         <p style="white-space: pre-wrap;">{{ msg.content }}</p>
                     </div>
-
-                    <!-- AI 消息气泡 (容器) -->
                     <div v-else class="relative group pt-8">
-                        <!-- 语音回放按钮 -->
-                        <button @click="speakText(msg.content)"
+                        <!-- **核心改动**: 回放按钮现在调用 playAudioFromText -->
+                        <button @click="playAudioFromText(msg.content)"
                                 class="absolute top-0 left-4 z-10 flex items-center gap-1.5 pl-2 pr-3 py-1 rounded-full bg-slate-600 text-white/70 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-slate-500 transition-all duration-300">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                             </svg>
                             <span class="text-xs font-semibold">回放</span>
                         </button>
-                        <!-- 聊天气泡本体 -->
                         <div class="max-w-xl px-5 py-4 rounded-2xl bg-gray-800 text-white">
                             <p style="white-space: pre-wrap;">{{ msg.content }}</p>
                         </div>
                     </div>
                 </div>
-
                 <div v-if="isLoading" class="flex gap-3">
                     <img :src="character.imageUrl" class="w-10 h-10 rounded-full object-cover" />
                     <div class="max-w-xl p-3 rounded-xl bg-gray-700 flex items-center">
@@ -196,7 +183,8 @@ onMounted(async () => {
             </main>
 
             <footer class="p-4 border-t border-white/10 shrink-0">
-                <form @submit.prevent="handleSendMessage" class="flex items-center bg-gray-800 rounded-xl p-2 gap-2">
+                <!-- ... (footer表单部分不变) ... -->
+                 <form @submit.prevent="handleSendMessage" class="flex items-center bg-gray-800 rounded-xl p-2 gap-2">
                     <button type="button" @click="startListening" :disabled="isLoading"
                             :class="['p-2.5 rounded-full transition-colors', isListening ? 'text-yellow-400 animate-pulse' : 'text-white/70 hover:text-yellow-400']">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

@@ -47,23 +47,29 @@ def get_all_characters() -> list:
         logger.warning(f"角色目录 '{CHARACTERS_DIR}' 不存在。")
         return []
 
+    required_keys = ["id", "name", "description", "imageUrl", "voiceType"]
     for filename in os.listdir(CHARACTERS_DIR):
         if filename.endswith(".json"):
             filepath = os.path.join(CHARACTERS_DIR, filename)
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    if all(k in data for k in ["id", "name", "description", "imageUrl"]):
+
+                    if all(k in data for k in required_keys):
                         characters.append({
                             "id": data["id"],
                             "name": data["name"],
                             "description": data["description"],
-                            "imageUrl": data["imageUrl"]
+                            "imageUrl": data["imageUrl"],
+                            "voiceType": data["voiceType"]
                         })
                     else:
-                        logger.warning(f"角色文件 {filename} 缺少必要字段 (id, name, description, imageUrl)，已跳过。")
+                        missing_keys = [k for k in required_keys if k not in data]
+                        logger.warning(f"角色文件 {filename} 缺少必要字段: {missing_keys}，已跳过。")
+
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"加载或读取角色文件 {filename} 时出错: {e}，已跳过。")
             except Exception as e:
                 logger.critical(f"处理角色文件 {filename} 时发生未知严重错误: {e}，已跳过。", exc_info=True)
+
     return characters
