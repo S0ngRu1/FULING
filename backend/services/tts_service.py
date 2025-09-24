@@ -12,8 +12,7 @@ import requests
 from dotenv import load_dotenv
 from backend.utils.logger import logger
 from backend.errors.exceptions import TTSServiceError
-
-# 加载环境变量
+from backend.services.config_loader import load_tts_config
 load_dotenv()
 
 # 从配置中获取七牛云的凭证
@@ -22,56 +21,40 @@ BASE_URL = os.getenv("API_BASE")
 
 # 确保配置存在
 if not API_KEY or not BASE_URL:
-    raise RuntimeError("请在 .env 文件中配置 API_KEY 和 API_BASE")
+    raise RuntimeError("请在 .env 文件中配置 QINIU_API_KEY 和 QINIU_BASE_URL")
+
+# 在模块加载时，从配置文件中读取情感映射
+EMOTION_TO_SPEED_MAP = load_tts_config()
+if not EMOTION_TO_SPEED_MAP:
+    logger.warning("未能加载TTS情感配置，将使用默认语速。")
 
 
-def generate_speech(text: str, voice_type: str, speed_ratio: float = 1.0) -> str:
+def generate_speech(text: str, voice_type: str, emotion: str = "default") -> str:
     """
-    调用七牛云TTS API生成语音。
-
-    :param text: 需要合成的文本
-    :param voice_type: 音色类型
-    :param speed_ratio: 语速
-    :return: Base64编码的音频数据字符串
-    :raises TTSServiceError: 如果API调用失败
+    调用七牛云TTS API生成语音, 现在会根据外部配置文件调整语速。
     """
-
     tts_url = f"{BASE_URL}/voice/tts"
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY}"
-    }
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
+    # 从加载的配置中获取语速
+    default_speed = EMOTION_TO_SPEED_MAP.get("default", 1.0)
+    speed_ratio = EMOTION_TO_SPEED_MAP.get(emotion, default_speed)
+    logger.info(f"情绪: '{emotion}', 映射语速为: {speed_ratio}")
 
     payload = {
-        "audio": {
-            "voice_type": voice_type,
-            "encoding": "mp3",  # 我们请求MP3格式
-            "speed_ratio": speed_ratio
-        },
-        "request": {
-            "text": text
-        }
+        "audio": {"voice_type": voice_type, "encoding": "mp3", "speed_ratio": speed_ratio},
+        "request": {"text": text}
     }
-
-    logger.info(f"向七牛云TTS发送请求，音色: {voice_type}")
 
     try:
         response = requests.post(tts_url, headers=headers, json=payload, timeout=20)
-        response.raise_for_status()  # 如果状态码不是2xx，则抛出HTTPError
-
+        response.raise_for_status()
         response_data = response.json()
 
         if "data" in response_data and response_data["data"]:
-            logger.info("成功从七牛云TTS获取音频数据。")
             return response_data["data"]
         else:
-            logger.error(f"七牛云TTS响应格式不正确: {response_data}")
             raise TTSServiceError("TTS服务返回的数据为空或格式不正确。")
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"调用七牛云TTS API时发生网络错误: {e}")
         raise TTSServiceError(f"无法连接到TTS服务: {e}")
-    except Exception as e:
-        logger.error(f"处理七牛云TTS响应时发生未知错误: {e}")
-        raise TTSServiceError(f"处理TTS响应时出错: {e}")
+

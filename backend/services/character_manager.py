@@ -73,3 +73,16 @@ def get_all_characters() -> list:
                 logger.critical(f"处理角色文件 {filename} 时发生未知严重错误: {e}，已跳过。", exc_info=True)
 
     return characters
+
+
+def get_character_data(character_id: str) -> dict:
+    """根据角色ID加载完整的角色数据字典"""
+    filepath = os.path.join(CHARACTERS_DIR, f"{character_id}.json")
+    if not os.path.exists(filepath):
+        raise CharacterNotFound(f"角色 '{character_id}' 的配置文件未找到。")
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"加载角色数据文件 {filepath} 时出错: {e}")
+        raise CharacterNotFound(f"角色 '{character_id}' 的配置文件无效或已损坏。")

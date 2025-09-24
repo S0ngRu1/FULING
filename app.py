@@ -13,7 +13,7 @@ from flask_cors import CORS
 
 from dotenv import load_dotenv
 
-from backend.errors.exceptions import MissingParameterError
+from backend.errors.exceptions import MissingParameterError, InvalidAPIRequest
 
 load_dotenv()
 
@@ -71,6 +71,8 @@ def generate_audio():
     data = request.get_json()
     text = data.get("text")
     voice_type = data.get("voiceType")
+    logger.info(data)
+    emotion = data.get("emotion", "default")
 
     if not text or not voice_type:
         raise MissingParameterError("请求缺少 'text' 或 'voiceType' 参数。")
@@ -78,7 +80,7 @@ def generate_audio():
     logger.info(f"收到语音生成请求，音色: {voice_type}")
 
     # 调用新的TTS服务
-    base64_audio = tts_service.generate_speech(text, voice_type)
+    base64_audio = tts_service.generate_speech(text, voice_type, emotion)
 
     logger.info("成功生成Base64音频数据并返回给前端。")
     return jsonify({"audioData": base64_audio})

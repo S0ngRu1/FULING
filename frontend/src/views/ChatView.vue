@@ -89,11 +89,12 @@ const handleSendMessage = async () => {
       history,
     });
     const aiResponseText = chatResponse.data.response;
-
+    const emotion = chatResponse.data.emotion;
     // 2. 获取该文本的语音数据
     const speechResponse = await axios.post(`${API_BASE_URL}/api/speech`, {
       text: aiResponseText,
-      voiceType: character.value.voiceType
+      voiceType: character.value.voiceType,
+      emotion: emotion // 将情绪传递给TTS接口
     });
     const base64Audio = speechResponse.data.audioData;
     const audioSrc = `data:audio/mp3;base64,${base64Audio}`;
