@@ -8,6 +8,10 @@
 
 
 
+https://github.com/user-attachments/assets/8225b249-8526-476f-a0c2-1a8a4ba3e94e
+
+
+
 ## ✨ 项目理念
 
 **“赋灵”**，取“赋予灵魂”之意。
