@@ -21,15 +21,13 @@ onMounted(async () => {
 
 <template>
   <div class="p-4 sm:p-8 h-full">
-    <!-- 使用 max-w-7xl 和 mx-auto 来让内容占据屏幕一多半并居中 -->
     <div class="max-w-7xl mx-auto">
       <header class="mb-8">
         <h1 class="text-3xl font-bold">发现角色</h1>
       </header>
 
-      <div v-if="loading" class="text-center text-xl">加载角色中...</div>
+      <div v-if="loading" class="text-center text-xl mt-10">加载角色中...</div>
 
-      <!-- 网格布局现在固定为3列，响应式处理更小的屏幕 -->
       <main v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         <RouterLink
           v-for="char in characters"
@@ -37,9 +35,7 @@ onMounted(async () => {
           :to="`/chat/${char.id}`"
           class="group block bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300 transform hover:-translate-y-1 border border-transparent hover:border-yellow-400/50 overflow-hidden"
         >
-          <!-- aspect-h-4/aspect-w-3 强制设定图片容器的宽高比为4:3，确保所有卡片大小一致 -->
           <div class="aspect-w-3 aspect-h-4 w-full">
-            <!-- object-cover 会缩放并裁剪图片以填充容器，确保图片显示大小一致 -->
             <img
               :src="char.imageUrl"
               :alt="char.name"
