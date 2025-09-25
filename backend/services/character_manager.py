@@ -14,6 +14,7 @@ from backend.errors.exceptions import CharacterNotFound
 
 _SERVICE_DIR = os.path.dirname(__file__)
 CHARACTERS_DIR = os.path.abspath(os.path.join(_SERVICE_DIR, '..', 'characters'))
+KNOWLEDGE_BASE_DIR = os.path.abspath(os.path.join(_SERVICE_DIR, '..', 'knowledge_base'))
 
 def get_character_prompt(character_id: str) -> str:
     """
@@ -56,13 +57,7 @@ def get_all_characters() -> list:
                     data = json.load(f)
 
                     if all(k in data for k in required_keys):
-                        characters.append({
-                            "id": data["id"],
-                            "name": data["name"],
-                            "description": data["description"],
-                            "imageUrl": data["imageUrl"],
-                            "voiceType": data["voiceType"]
-                        })
+                        characters.append(data)
                     else:
                         missing_keys = [k for k in required_keys if k not in data]
                         logger.warning(f"角色文件 {filename} 缺少必要字段: {missing_keys}，已跳过。")
