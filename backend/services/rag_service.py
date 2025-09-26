@@ -56,26 +56,42 @@ except Exception as e:
     logger.critical(f"无法连接到ChromaDB集合 '{COLLECTION_NAME}': {e}")
     CHROMA_COLLECTION = None
 
-# 用于判断知识型问题的关键词
-QUESTION_WORDS = (
-    "who", "what", "where", "when", "how", "why", "tell me", "describe",
-    "谁", "什么", "哪里", "何时", "怎样", "为什么", "告诉我", "介绍一下", "关于"
-)
-
 
 def is_knowledge_query(text: str) -> bool:
-    """通过关键词判断用户输入是否为一个知识型问题。"""
-    text_lower = text.lower().strip()
-    for word in QUESTION_WORDS:
-        if text_lower.startswith(word):
-            return True
-    return False
+    """通过关键词判断用户输入是否为知识型问题"""
+    # 处理文本：去除首尾空格，中文不需要转小写
+    text_processed = text.strip().lower()
 
+    # 扩充中文疑问词，覆盖更多表达；区分中英文关键词
+    chinese_question_words = {
+        "谁", "什么", "哪里", "何时", "怎样", "为什么",
+        "何谓", "请问", "解释", "含义", "介绍", "告诉我",
+        "是什么", "怎么样", "有什么", "为什么会"
+    }
+    english_question_words = {
+        "who", "what", "where", "when", "how", "why",
+        "tell me", "describe"
+    }
+
+    # 检查中文关键词：只要文本中包含中文疑问词，即视为知识型问题
+    for word in chinese_question_words:
+        if word in text_processed:
+            return True
+
+    # 检查英文关键词
+    for word in english_question_words:
+        if text_processed.startswith(word):
+            return True
+
+    return False
 
 def retrieve_context(character_id: str, query: str) -> str | None:
     """
-       从ChromaDB中通过向量相似度检索上下文。
+    从ChromaDB中通过向量相似度检索上下文，仅返回第一个相关性高于阈值的结果。
     """
+    # 相关性阈值
+    RELEVANCE_THRESHOLD = 150
+
     if not EMBEDDING_MODEL or not CHROMA_COLLECTION:
         logger.error("RAG服务未正确初始化，无法执行检索。")
         return None
@@ -84,23 +100,37 @@ def retrieve_context(character_id: str, query: str) -> str | None:
         # 1. 将用户问题转换为查询向量
         query_embedding = EMBEDDING_MODEL.encode(query).tolist()
 
-        # 2. 在ChromaDB中进行查询
+        # 2. 在ChromaDB中查询
         results = CHROMA_COLLECTION.query(
             query_embeddings=[query_embedding],
-            n_results=2,  # 返回最相关的2个结果
-            # 使用where过滤器，确保只在当前角色的知识中搜索
-            where={"character_id": character_id}
+            n_results=1,  # 只检索最相关的1个结果
+            where={"character_id": character_id},  # 过滤当前角色的知识
+            include=["documents", "distances"]  # 明确要求返回距离分数
         )
 
-        # 3. 提取并组合检索到的文档内容
+        # 3. 提取结果和相关性分数
         retrieved_docs = results.get('documents', [[]])[0]
-        if not retrieved_docs:
-            logger.warning(f"未能为问题 '{query}' 在角色 '{character_id}' 的知识库中找到相关上下文。")
+        distances = results.get('distances', [[]])[0]
+
+        if not retrieved_docs or not distances:
+            logger.warning(f"未找到与问题 '{query}' 相关的知识（角色: {character_id}）。")
             return None
 
-        context = "\n\n---\n\n".join(retrieved_docs)
-        logger.info(f"为问题 '{query}' 成功检索到上下文。")
-        return context
+        # 4. 检查第一个结果是否满足相关性阈值
+        first_doc = retrieved_docs[0]
+        first_distance = distances[0]
+
+        if first_distance <= RELEVANCE_THRESHOLD:
+            logger.info(
+                f"找到符合阈值的相关知识（距离: {first_distance:.4f}），角色: {character_id}"
+            )
+            return first_doc
+        else:
+            logger.warning(
+                f"最相关结果距离 {first_distance:.4f} 超过阈值 {RELEVANCE_THRESHOLD}，"
+                f"角色: {character_id}，问题: {query}"
+            )
+            return None
 
     except Exception as e:
         logger.error(f"在向量数据库中检索时发生错误: {e}")

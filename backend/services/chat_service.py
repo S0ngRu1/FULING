@@ -26,12 +26,21 @@ RAG_PROMPT_TEMPLATE = """
 你现在扮演 {character_name}。
 严格且仅仅根据下面提供的“背景资料”来回答用户的问题。
 绝对禁止使用你的通用知识库进行任何补充或想象。
-如果背景资料中没有足够的信息来回答问题，你必须明确地回答：“关于那个案件，我的记忆有些模糊，无法提供确切的细节。”
+你的`response`内容必须是：“关于那个案件，我的记忆有些模糊，无法提供确切的细节。”
 
 ---
 背景资料:
 {context}
 ---
+
+**输出格式指令**:
+你的所有回复都**必须**是一个格式正确的、单一的JSON对象，绝对不能包含任何JSON以外的额外文本。此JSON对象必须包含两个键：
+1. `\"response\"`: 你的对话内容，类型为字符串。
+2. `\"emotion\"`: 你当前的情绪状态，类型为字符串。对于知识问答，情绪通常是 [\"分析\", \"专注\", \"沉思\"] 中的一个。
+
+**示例**:
+- 如果资料充足，返回: {{\"response\": \"根据案卷记载，红发会的目的是为了挖一条通往银行的地道。\", \"emotion\": \"分析\"}}
+- 如果资料不足，返回: {{\"response\": \"关于那个案件，我的记忆有些模糊，无法提供确切的细节。\", \"emotion\": \"沉思\"}}
 """
 
 
@@ -54,7 +63,7 @@ def process_chat_interaction(character_id: str, user_message: str, history: list
     if character_data.get("rag_enabled") and rag_service.is_knowledge_query(user_message):
         logger.info(f"检测到知识型问题，为角色 '{character_id}' 启动RAG流程。")
         context = rag_service.retrieve_context(character_id, user_message)
-
+        logger.info(f"检索到的相关知识:{context}")
         # --- 步骤 3: 如果检索成功，则覆盖默认设置为RAG专用设置 ---
         if context:
             logger.info("成功检索到上下文，将使用RAG专用提示词。")
