@@ -18,6 +18,20 @@ const isListening = ref(false);
 const chatEndRef = ref(null);
 const conversationId = ref(null);
 const showHistory = ref(true);
+const modal = ref({
+  show: false,
+  loading: false,
+  message: '',
+  type: 'success', // success | error
+});
+
+// *** 3. 新增：一个显示通知的辅助函数 ***
+const showNotification = (message, type = 'success', duration = 3000) => {
+  notification.value = { show: true, message, type };
+  setTimeout(() => {
+    notification.value.show = false;
+  }, duration);
+};
 
 let recognition;
 let currentAudio = null;
@@ -127,24 +141,43 @@ const handleSendMessage = async () => {
     isLoading.value = false;
   }
 };
-
 const endConversation = async () => {
   if (!conversationId.value || messages.value.length === 0) {
-    alert("还没有开始对话，无法结束。");
+    // 仍然可以使用 modal 来显示简短的错误提示
+    modal.value = { show: true, loading: false, message: '没有可保存的对话', type: 'error' };
+    setTimeout(() => { modal.value.show = false; }, 2000);
     return;
   }
+
+  // 显示加载状态的 modal
+  modal.value = { show: true, loading: true, message: '正在保存记忆...', type: 'success' };
+
   try {
     await axios.post(`${API_BASE_URL}/api/conversations/${conversationId.value}/summarize`, {
-      // 注意：后端的 summarize_conversation 函数需要的是 history 列表
       history: messages.value.map(msg => ({role: msg.role, content: msg.content}))
     });
-    alert("对话已结束，记忆已保存。");
-    messages.value = [];
-    conversationId.value = null;
-    showHistory.value = true;
+
+    // 更新 modal 为成功状态
+    modal.value = { ...modal.value, loading: false, message: '记忆已保存！', type: 'success' };
+
+    // 成功提示显示 1.5 秒后
+    setTimeout(() => {
+      modal.value.show = false; // 关闭 modal
+      // 在 modal 关闭后再切换页面，体验更流畅
+      messages.value = [];
+      conversationId.value = null;
+      showHistory.value = true;
+    }, 1500);
+
   } catch (error) {
     console.error("结束对话失败:", error);
-    alert("保存记忆时出错，请稍后再试。");
+    // 更新 modal 为失败状态
+    modal.value = { ...modal.value, loading: false, message: '保存失败，请重试', type: 'error' };
+
+    // 失败提示显示 2.5 秒后关闭
+    setTimeout(() => {
+        modal.value.show = false;
+    }, 2500);
   }
 };
 
@@ -262,6 +295,38 @@ onMounted(async () => {
                 </footer>
             </div>
         </div>
+
+      <transition
+            enter-active-class="transition-opacity duration-300 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition-opacity duration-200 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="modal.show" class="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
+                <div class="bg-gray-800 rounded-xl p-8 flex flex-col items-center gap-4 min-w-[240px]">
+                    <div v-if="modal.loading">
+                        <svg class="animate-spin h-12 w-12 text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <div v-else>
+                        <svg v-if="modal.type === 'success'" xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <svg v-if="modal.type === 'error'" xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+
+                    <p class="text-white text-lg font-semibold">{{ modal.message }}</p>
+                </div>
+            </div>
+        </transition>
+
+
     </div>
     <div v-else class="flex justify-center items-center h-full">加载中...</div>
 </template>

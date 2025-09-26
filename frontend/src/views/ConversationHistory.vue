@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue'; // *** 1. 引入 watch ***
 import axios from 'axios';
 
 const props = defineProps({
@@ -19,11 +19,11 @@ const fetchConversations = async () => {
     const response = await axios.get(`${API_BASE_URL}/api/conversations/${props.character.id}`);
     conversations.value = response.data.map(conv => ({
         ...conv,
-        // 将ISO格式的日期字符串转换为更友好的格式
-        updated_at: new Date(conv.updated_at).toLocaleString('zh-CN')
+        updated_at: new Date(conv.updated_at).toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' })
     }));
   } catch (error) {
     console.error("获取历史对话失败:", error);
+    conversations.value = []; // 出错时清空列表
   } finally {
     loading.value = false;
   }
@@ -33,14 +33,21 @@ const deleteConversation = async (conversationId) => {
   if (!confirm("确定要删除这段记忆吗？")) return;
   try {
     await axios.delete(`${API_BASE_URL}/api/conversations/${conversationId}`);
-    // 重新获取列表以刷新UI
-    fetchConversations();
+    fetchConversations(); // 重新获取列表
   } catch (error) {
     console.error("删除对话失败:", error);
   }
 };
 
-onMounted(fetchConversations);
+// onMounted(fetchConversations); // 可以保留也可以移除，watch 会处理初始加载
+
+// *** 2. 核心修复：监听 character prop 的变化 ***
+watch(() => props.character, (newCharacter) => {
+  if (newCharacter && newCharacter.id) {
+    fetchConversations();
+  }
+}, { immediate: true }); // immediate: true 确保组件加载后立即执行一次
+
 </script>
 
 <template>
