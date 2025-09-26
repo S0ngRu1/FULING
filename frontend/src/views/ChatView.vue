@@ -17,7 +17,7 @@ const isLoading = ref(false);
 const isListening = ref(false);
 const chatEndRef = ref(null);
 const conversationId = ref(null);
-const showHistory = ref(true); // 控制显示历史还是聊天界面
+const showHistory = ref(true);
 
 let recognition;
 let currentAudio = null;
@@ -31,6 +31,7 @@ const replayAudio = (message) => {
   currentAudio = new Audio(message.audioSrc);
   currentAudio.play();
 };
+
 const setupSpeechRecognition = () => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) return;
@@ -49,6 +50,7 @@ const setupSpeechRecognition = () => {
     console.error("语音识别错误:", event.error);
   };
 };
+
 const startListening = () => {
   if (recognition && !isLoading.value) {
     try {
@@ -59,6 +61,7 @@ const startListening = () => {
   }
 };
 
+// --- 核心修复在这里 ---
 const handleSendMessage = async () => {
   if (isLoading.value) return;
   const userInput = input.value.trim();
@@ -74,33 +77,51 @@ const handleSendMessage = async () => {
   }));
 
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/chat`, {
+    // 步骤 1: 调用 /api/chat 获取文本、情绪和对话ID
+    const chatResponse = await axios.post(`${API_BASE_URL}/api/chat`, {
       characterId: props.characterId,
       message: userInput,
       history,
-      conversationId: conversationId.value // **发送当前对话ID**
+      conversationId: conversationId.value
     });
 
-    conversationId.value = response.data.conversationId; // **更新对话ID**
+    // 从响应中提取所需数据
+    conversationId.value = chatResponse.data.conversationId; // 更新对话ID
+    const aiResponseText = chatResponse.data.text;
+    const emotion = chatResponse.data.emotion; // **获取情绪，为语音接口做准备**
 
-    const aiResponseText = response.data.response;
-    const base64Audio = response.data.audioData;
+    // 健壮性检查：确保收到了有效的文本
+    if (!aiResponseText) {
+      throw new Error("从 /api/chat 返回的文本为空。");
+    }
+
+    // 步骤 2: 调用 /api/speech 获取音频数据
+    const speechResponse = await axios.post(`${API_BASE_URL}/api/speech`, {
+      text: aiResponseText,
+      voiceType: character.value.voiceType, // 从角色信息中获取 voiceType
+      emotion: emotion                      // 将情绪传递给语音接口
+    });
+
+    const base64Audio = speechResponse.data.audioData;
     const audioSrc = `data:audio/mp3;base64,${base64Audio}`;
 
+    // 步骤 3: 预加载音频
     const audio = new Audio(audioSrc);
     await new Promise((resolve, reject) => {
       audio.oncanplaythrough = resolve;
       audio.onerror = reject;
     });
 
+    // 步骤 4: 将文本和音频源一起推送到消息列表
     messages.value.push({role: 'assistant', content: aiResponseText, audioSrc: audioSrc});
 
+    // 步骤 5: 播放音频
     if (currentAudio) currentAudio.pause();
     currentAudio = audio;
     currentAudio.play();
 
   } catch (error) {
-    console.error("发送消息失败:", error);
+    console.error("发送消息或生成语音时发生错误:", error);
     messages.value.push({role: 'assistant', content: '抱歉，我的思维出现了一点混乱。'});
   } finally {
     isLoading.value = false;
@@ -114,10 +135,10 @@ const endConversation = async () => {
   }
   try {
     await axios.post(`${API_BASE_URL}/api/conversations/${conversationId.value}/summarize`, {
-      history: messages.value
+      // 注意：后端的 summarize_conversation 函数需要的是 history 列表
+      history: messages.value.map(msg => ({role: msg.role, content: msg.content}))
     });
     alert("对话已结束，记忆已保存。");
-    // 重置状态以准备新对话或返回
     messages.value = [];
     conversationId.value = null;
     showHistory.value = true;
@@ -144,15 +165,17 @@ onMounted(async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/characters`);
     const currentChar = response.data.find(c => c.id === props.characterId);
-    if (currentChar) character.value = currentChar;
-    else vueRouter.push('/');
+    if (currentChar) {
+      character.value = currentChar;
+    } else {
+      vueRouter.push('/');
+    }
   } catch (error) {
     console.error("获取角色信息失败:", error);
   }
   setupSpeechRecognition();
 });
 </script>
-
 <template>
     <div v-if="character" class="flex h-full w-full">
         <!-- 左侧角色展示区 -->
