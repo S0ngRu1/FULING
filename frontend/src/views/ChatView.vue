@@ -18,21 +18,13 @@ const isListening = ref(false);
 const chatEndRef = ref(null);
 const conversationId = ref(null);
 const showHistory = ref(true);
+const currentSummary = ref(null);
 const modal = ref({
   show: false,
   loading: false,
   message: '',
   type: 'success', // success | error
 });
-
-// *** 3. 新增：一个显示通知的辅助函数 ***
-const showNotification = (message, type = 'success', duration = 3000) => {
-  notification.value = { show: true, message, type };
-  setTimeout(() => {
-    notification.value.show = false;
-  }, duration);
-};
-
 let recognition;
 let currentAudio = null;
 
@@ -187,10 +179,10 @@ const startNewChat = () => {
   showHistory.value = false;
 };
 
-const continueChat = (id) => {
-  alert(`继续对话 ${id}。\n(在完整应用中，这里会加载历史记录)`);
-  conversationId.value = id;
+const continueChat = (id, summary) => {
+  currentSummary.value = summary;
   messages.value = [];
+  conversationId.value = id;
   showHistory.value = false;
 };
 
@@ -240,13 +232,22 @@ onMounted(async () => {
                         <p class="text-sm text-white/60">{{ character.description }}</p>
                         </div>
                     </div>
-                    <button @click="endConversation" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-full transition-colors">
-                        结束对话
+                    <button
+                        @click="endConversation"
+                        class="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-colors duration-200"
+                        title="结束对话"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
                     </button>
                 </header>
 
                 <main class="flex-1 overflow-y-auto p-6 space-y-6">
-                    <!-- ... (消息渲染逻辑不变) ... -->
+                    <div v-if="currentSummary" class="bg-white/5 border-l-4 border-yellow-400 p-4 rounded-r-lg text-sm text-white/70 mb-4">
+                        <p class="font-bold text-white/90 mb-1">记忆回顾</p>
+                        <p>“{{ currentSummary }}”</p>
+                    </div>
                      <div v-if="messages.length === 0" class="text-center text-white/50 mt-10">开始对话吧</div>
                     <div v-for="(msg, index) in messages" :key="index" :class="['flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : '']">
                         <img :src="msg.role === 'user' ? userAvatarUrl : character.imageUrl" class="w-10 h-10 rounded-full object-cover shrink-0" />

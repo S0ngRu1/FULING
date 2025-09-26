@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'; // *** 1. 引入 watch ***
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -32,21 +32,18 @@ const fetchConversations = async () => {
 const deleteConversation = async (conversationId) => {
   if (!confirm("确定要删除这段记忆吗？")) return;
   try {
-    await axios.delete(`${API_BASE_URL}/api/conversations/${conversationId}`);
+    await axios.delete(`${API__BASE_URL}/api/conversations/${conversationId}`);
     fetchConversations(); // 重新获取列表
   } catch (error) {
     console.error("删除对话失败:", error);
   }
 };
 
-// onMounted(fetchConversations); // 可以保留也可以移除，watch 会处理初始加载
-
-// *** 2. 核心修复：监听 character prop 的变化 ***
 watch(() => props.character, (newCharacter) => {
   if (newCharacter && newCharacter.id) {
     fetchConversations();
   }
-}, { immediate: true }); // immediate: true 确保组件加载后立即执行一次
+}, { immediate: true });
 
 </script>
 
@@ -71,15 +68,18 @@ watch(() => props.character, (newCharacter) => {
           <p class="text-sm text-white/50 mt-1">摘要: {{ conv.summary }}</p>
           <p class="text-xs text-white/40 mt-2">{{ conv.updated_at }}</p>
         </div>
+
         <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button @click="onContinue(conv.id)" class="text-yellow-400 hover:text-yellow-300 text-sm font-bold">继续</button>
+
+          <button @click="onContinue(conv.id, conv.summary)" class="text-yellow-400 hover:text-yellow-300 text-sm font-bold">继续</button>
+
           <button @click="deleteConversation(conv.id)" class="text-red-500 hover:text-red-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0_0_24_24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
         </div>
-      </div>
+        </div>
     </div>
   </div>
 </template>

@@ -50,27 +50,21 @@ def chat():
     """
     核心聊天接口，处理用户的对话请求。
     """
-    try:
-        data = request.get_json()
-        character_id = data.get("characterId")
-        user_message = data.get("message")
-        history = data.get("history", [])
-        conversation_id = data.get('conversationId')
-        if not conversation_id:
-            conversation_id = database_manager.create_conversation(character_id)
-        logger.info(f"收到来自角色 '{character_id}' 的聊天请求,, 对话ID: {conversation_id}")
+    data = request.get_json()
+    character_id = data.get("characterId")
+    user_message = data.get("message")
+    history = data.get("history", [])
+    conversation_id = data.get('conversationId')
+    if not conversation_id:
+        conversation_id = database_manager.create_conversation(character_id)
+    logger.info(f"收到来自角色 '{character_id}' 的聊天请求,, 对话ID: {conversation_id}")
 
-        response_data = chat_service.process_chat_interaction(
-            character_id, user_message, history
-        )
-        response_data['conversationId'] = conversation_id
-        logger.info(f"成功生成对角色 '{character_id}' 的回复, 对话ID: {conversation_id}")
-        return jsonify(response_data)
-    except FulingException as e:
-        return jsonify({"error": e.message, "code": e.status_code}), e.status_code
-    except Exception as e:
-        logger.critical(f"Unhandled Exception in /api/chat: {e}", exc_info=True)
-        return jsonify({"error": "服务器内部发生未知错误", "code": 500}), 500
+    response_data = chat_service.process_chat_interaction(
+        character_id, user_message, history
+    )
+    response_data['conversationId'] = conversation_id
+    logger.info(f"成功生成对角色 '{character_id}' 的回复, 对话ID: {conversation_id}")
+    return jsonify(response_data)
 
 @app.route('/api/speech', methods=['POST'])
 @api_error_handler
