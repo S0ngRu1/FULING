@@ -10,6 +10,7 @@ RAG服务
 import os
 import chromadb
 from sentence_transformers import SentenceTransformer
+from modelscope import snapshot_download
 from backend.utils.logger import logger
 from backend.errors.exceptions import FulingException
 
@@ -18,15 +19,32 @@ logger.info("正在初始化RAG服务...")
 
 # 配置路径
 CHROMA_DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'chroma_db'))
-EMBEDDING_MODEL_NAME = 'paraphrase-multilingual-MiniLM-L12-v2'
+MODEL_ID = "AI-ModelScope/m3e-small"  # 国内模型ID
 COLLECTION_NAME = "fuling_rag"
+MODEL_CACHE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'model_cache'))  # 模型缓存目录
 
 # 加载嵌入模型
 try:
-    EMBEDDING_MODEL = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    # 确保缓存目录存在
+    os.makedirs(MODEL_CACHE_DIR, exist_ok=True)
+
+    # 从ModelScope下载模型到本地
+    logger.info(f"正在从ModelScope下载模型: {MODEL_ID}...")
+    local_model_dir = snapshot_download(
+        model_id=MODEL_ID,
+        cache_dir=MODEL_CACHE_DIR,
+        revision='master'
+    )
+
+    # 加载本地模型
+    EMBEDDING_MODEL = SentenceTransformer(
+        model_name_or_path=local_model_dir,
+        trust_remote_code=True,
+        cache_folder=MODEL_CACHE_DIR
+    )
     logger.info("RAG服务的嵌入模型加载成功。")
 except Exception as e:
-    logger.critical(f"无法加载嵌入模型 '{EMBEDDING_MODEL_NAME}': {e}")
+    logger.critical(f"无法加载嵌入模型 '{MODEL_ID}': {e}")
     EMBEDDING_MODEL = None
 
 # 连接到ChromaDB

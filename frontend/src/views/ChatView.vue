@@ -88,7 +88,7 @@ const handleSendMessage = async () => {
       message: userInput,
       history,
     });
-    const aiResponseText = chatResponse.data.response;
+    const aiResponseText = chatResponse.data.text;
     const emotion = chatResponse.data.emotion;
     // 2. 获取该文本的语音数据
     const speechResponse = await axios.post(`${API_BASE_URL}/api/speech`, {
