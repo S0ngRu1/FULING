@@ -13,21 +13,23 @@ from flask_cors import CORS
 
 from dotenv import load_dotenv
 
-from backend.errors.exceptions import MissingParameterError, InvalidAPIRequest
+from backend.errors.exceptions import MissingParameterError, InvalidAPIRequest, FulingException
 
 load_dotenv()
 
 from backend.utils.logger import logger
-from backend.services import chat_service, character_manager, tts_service
+from backend.services import chat_service, character_manager, tts_service, database_manager
 from backend.errors.error_handlers import api_error_handler, register_error_handlers
 
 
 # 初始化Flask应用
 app = Flask(__name__)
 CORS(app)
+app.register_error_handler(FulingException, api_error_handler)
 
-# 注册通用的HTTP错误处理器
-register_error_handlers(app)
+with app.app_context():
+    database_manager.initialize_database()
+
 
 # --- API 路由 ---
 @app.route('/api/characters', methods=['GET'])
@@ -60,7 +62,6 @@ def chat():
     )
 
     logger.info(f"成功生成对角色 '{character_id}' 的回复")
-    logger.info(response_data)
     return jsonify(response_data)
 
 
@@ -84,6 +85,41 @@ def generate_audio():
 
     logger.info("成功生成Base64音频数据并返回给前端。")
     return jsonify({"audioData": base64_audio})
+
+
+@app.route('/api/conversations/<character_id>', methods=['GET'])
+@api_error_handler
+def get_character_conversations(character_id):
+    """获取与特定角色的历史对话列表"""
+    conversations = database_manager.get_conversations_by_character(character_id)
+    return jsonify(conversations)
+
+
+@app.route('/api/conversations/<conversation_id>', methods=['DELETE'])
+@api_error_handler
+def delete_conversation_by_id(conversation_id):
+    """删除指定的对话"""
+    database_manager.delete_conversation(conversation_id)
+    return jsonify({"status": "success", "message": "对话已删除"})
+
+
+@app.route('/api/conversations/<conversation_id>/summarize', methods=['POST'])
+@api_error_handler
+def summarize_and_end_conversation(conversation_id):
+    """为对话生成并保存摘要"""
+    data = request.get_json()
+    history = data.get("history", [])
+
+    if not history:
+        raise InvalidAPIRequest("请求缺少'history'字段")
+
+    summary = chat_service.summarize_conversation(history)
+    first_message = history[0].get('content', '') if history else ''
+
+    database_manager.update_conversation_summary(conversation_id, summary, first_message)
+    return jsonify({"status": "success", "summary": summary})
+
+
 
 
 # --- 启动应用 ---

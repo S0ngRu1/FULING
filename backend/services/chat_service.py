@@ -11,7 +11,7 @@
 import os
 import json
 from openai import OpenAI, APIError
-from . import character_manager, rag_service
+from . import character_manager, rag_service, database_manager
 from backend.utils.logger import logger
 from backend.errors.exceptions import KimiServiceError, ApiResponseParseError
 
@@ -50,21 +50,22 @@ def process_chat_interaction(character_id: str, user_message: str, history: list
     如果RAG检索失败，会优雅地回退到通用知识回答。
     """
     character_data = character_manager.get_character_data(character_id)
+    latest_summary = database_manager.get_latest_summary(character_id)
+    memory_injection = ""
+    if latest_summary:
+        memory_injection = f"\n\n**情景回顾**: 你和用户的上一次对话摘要如下，你可以自然地利用这些信息继续本次对话：\n---{latest_summary}\n---"
 
-    # --- 步骤 1: 默认准备一个标准的角色扮演对话 ---
-    system_prompt = character_data["system_prompt"]
-    messages = [
-        {"role": "system", "content": system_prompt},
-    ]
+    system_prompt = character_data["system_prompt"] + memory_injection
+    messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
-    # --- 步骤 2: 检查是否满足RAG条件 ---
+    # --- 检查是否满足RAG条件 ---
     if character_data.get("rag_enabled") and rag_service.is_knowledge_query(user_message):
         logger.info(f"检测到知识型问题，为角色 '{character_id}' 启动RAG流程。")
         context = rag_service.retrieve_context(character_id, user_message)
         logger.info(f"检索到的相关知识:{context}")
-        # --- 步骤 3: 如果检索成功，则覆盖默认设置为RAG专用设置 ---
+        # --- 如果检索成功，则覆盖默认设置为RAG专用设置 ---
         if context:
             logger.info("成功检索到上下文，将使用RAG专用提示词。")
             rag_system_prompt = RAG_PROMPT_TEMPLATE.format(
@@ -80,7 +81,7 @@ def process_chat_interaction(character_id: str, user_message: str, history: list
             # --- 步骤 4: 如果检索失败，则什么都不做，自然回退 ---
             logger.info("未检索到特定上下文，将使用角色的通用知识库进行回答。")
 
-    # --- 步骤 5: 统一的API调用和解析流程 ---
+    # ---  统一的API调用和解析流程 ---
     try:
         logger.info(f"向Kimi API发送请求, 角色: {character_id}, 模型: {llm_model}")
         completion = client.chat.completions.create(
@@ -114,3 +115,26 @@ def process_chat_interaction(character_id: str, user_message: str, history: list
         if not kimi_response_str.strip().startswith('{'):
             return {"text": kimi_response_str, "emotion": "专注"}
         raise ApiResponseParseError("无法解析AI服务的响应格式。")
+
+
+def summarize_conversation(history: list) -> str:
+    """调用Kimi为对话历史生成摘要"""
+    if len(history) < 2:
+        return "一段简短的问候。"
+
+    summary_prompt = "请为以下对话内容生成一个简洁的、第三人称的摘要，不超过50个字，用于角色在未来回忆起这次对话：\n\n" + json.dumps(
+        history, ensure_ascii=False)
+
+    try:
+        completion = client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": summary_prompt}],
+            temperature=0.1,
+        )
+        summary = completion.choices[0].message.content
+        logger.info(f"成功生成对话摘要: {summary}")
+        return summary
+    except Exception as e:
+        logger.error(f"生成摘要时出错: {e}")
+        return "一次难忘的交流。"
+
