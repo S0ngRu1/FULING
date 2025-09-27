@@ -37,15 +37,15 @@ class InvalidAPIRequest(FulingException):
         super().__init__(message, status_code=400)
 
 
-class KimiServiceError(FulingException):
-    """当调用Kimi API失败时引发"""
+class LlmServiceError(FulingException):
+    """当调用LLM API失败时引发"""
 
     def __init__(self, message="与AI服务的通信时发生错误。"):
         super().__init__(message, status_code=503)  # 503 Service Unavailable
 
 
 class ApiResponseParseError(FulingException):
-    """当解析Kimi返回的JSON失败时引发"""
+    """当解析LLM返回的JSON失败时引发"""
 
     def __init__(self, message="解析AI服务响应时发生错误。"):
         super().__init__(message, status_code=500)

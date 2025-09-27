@@ -13,7 +13,7 @@ import json
 from openai import OpenAI, APIError
 from . import character_manager, rag_service, database_manager
 from backend.utils.logger import logger
-from backend.errors.exceptions import KimiServiceError, ApiResponseParseError
+from backend.errors.exceptions import LlmServiceError, ApiResponseParseError
 
 # --- 初始化 API 客户端 ---
 client = OpenAI(
@@ -85,27 +85,27 @@ def process_chat_interaction(character_id: str, user_message: str, history: list
 
     # ---  统一的API调用和解析流程 ---
     try:
-        logger.info(f"向Kimi API发送请求, 角色: {character_id}, 模型: {llm_model}")
+        logger.info(f"向LLM API发送请求, 角色: {character_id}, 模型: {llm_model}")
         completion = client.chat.completions.create(
             model=llm_model,
             messages=messages,
             temperature=0.3,
         )
-        kimi_response_str = completion.choices[0].message.content
-        logger.info("成功从Kimi API收到响应。")
+        llm_response_str = completion.choices[0].message.content
+        logger.info("成功从LLM API收到响应。")
 
     except APIError as e:
-        logger.error(f"调用Kimi API时发生APIError: {e}")
-        raise KimiServiceError("AI服务接口返回错误。")
+        logger.error(f"调用LLM API时发生APIError: {e}")
+        raise LlmServiceError("AI服务接口返回错误。")
     except Exception as e:
-        logger.error(f"调用Kimi API时发生未知错误: {e}")
-        raise KimiServiceError("与AI服务通信时发生未知网络或配置错误。")
+        logger.error(f"调用LLM API时发生未知错误: {e}")
+        raise LlmServiceError("与AI服务通信时发生未知网络或配置错误。")
 
     try:
-        parsed_response = json.loads(kimi_response_str)
+        parsed_response = json.loads(llm_response_str)
 
         if "response" not in parsed_response:
-            raise ValueError("Kimi返回的JSON缺少'response'字段")
+            raise ValueError("LLM返回的JSON缺少'response'字段")
 
         return {
             "text": parsed_response["response"],
@@ -113,14 +113,14 @@ def process_chat_interaction(character_id: str, user_message: str, history: list
         }
 
     except (json.JSONDecodeError, ValueError) as e:
-        logger.error(f"解析Kimi响应时出错: {e}。收到的原始字符串: {kimi_response_str}")
-        if not kimi_response_str.strip().startswith('{'):
-            return {"text": kimi_response_str, "emotion": "专注"}
+        logger.error(f"解析LLM响应时出错: {e}。收到的原始字符串: {llm_response_str}")
+        if not llm_response_str.strip().startswith('{'):
+            return {"text": llm_response_str, "emotion": "专注"}
         raise ApiResponseParseError("无法解析AI服务的响应格式。")
 
 
 def summarize_conversation(history: list) -> str:
-    """调用Kimi为对话历史生成摘要"""
+    """调用LLM为对话历史生成摘要"""
     if len(history) < 2:
         return "一段简短的问候。"
 
@@ -139,4 +139,3 @@ def summarize_conversation(history: list) -> str:
     except Exception as e:
         logger.error(f"生成摘要时出错: {e}")
         return "一次难忘的交流。"
-
