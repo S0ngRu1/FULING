@@ -12,10 +12,10 @@ import os
 import chromadb
 from sentence_transformers import SentenceTransformer
 from modelscope import snapshot_download
-from backend.utils.logger import logger
+from utils.logger import logger
 
 # --- 配置 ---
-KNOWLEDGE_BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'knowledge_base'))
+KNOWLEDGE_BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'knowledge_base'))
 CHROMA_DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'chroma_db'))
 MODEL_ID = "AI-ModelScope/m3e-small"  # ModelScope模型ID
 COLLECTION_NAME = "fuling_rag"

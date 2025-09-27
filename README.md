@@ -1,5 +1,6 @@
 # 赋灵 (Fuling) - AI 角色扮演语音聊天系统
 
+> **想深入了解本项目的设计思路、用户分析和技术选型吗？请查阅我们的 [项目设计文档](PROJECT_DOCUMENT.md)。**
 **与你最爱的角色进行一场跨越时空的语音对话。**
 
 -----
@@ -47,14 +48,11 @@ https://github.com/user-attachments/assets/8225b249-8526-476f-a0c2-1a8a4ba3e94e
 
 ## ⚙️ 本地部署与运行
 
-请确保您的电脑已安装 [Node.js](https://nodejs.org/) (LTS v20+) 和 [Python](https://www.python.org/) (v3.9+)。
+请确保您的电脑已安装 [Node.js](https://nodejs.org/) (LTS v20+) 和 [Python](https://www.python.org/) (v3.10+)。
 
 #### 1\. 配置后端
 
 ```bash
-# 进入后端目录
-cd backend
-
 # 创建并激活Python虚拟环境
 python -m venv venv
 # Windows: venv\Scripts\activate
@@ -62,6 +60,14 @@ python -m venv venv
 
 # 安装依赖
 pip install -r requirements.txt
+
+# 进入后端目录
+cd backend
+# 索引知识库
+
+# 首次运行会下载模型，需要一些时间
+# 创建向量数据库，用于知识型角色的回复RAG增强
+python index_knowledge_base.py
 
 # 创建.env文件，并填入您的API密钥
 # (请参考 .env.example 文件)
@@ -71,7 +77,7 @@ pip install -r requirements.txt
 
 ```bash
 # 进入前端目录
-cd fuling-vue-frontend
+cd frontend
 
 # 安装依赖
 npm install
@@ -81,15 +87,15 @@ npm install
 
   * **启动后端服务器:**
 
-      * 打开一个新终端，进入`backend`目录并激活虚拟环境。
+      * 打开一个新终端，进入`FULING`目录并激活虚拟环境。
       * 运行: `python app.py`
-      * 后端将运行在 `http://127.0.0.1:5000`
+      * 后端将运行在 `http://127.0.0.1:5123`
 
   * **启动前端开发服务器:**
 
-      * 打开另一个终端，进入`fuling-vue-frontend`目录。
+      * 打开另一个终端，进入`frontend`目录。
       * 运行: `npm run dev`
-      * 前端将运行在 `http://localhost:5173` (或终端提示的其他端口)。
+      * 前端将运行在 `http://localhost:5173` 
 
 在浏览器中打开前端地址即可开始使用！
 
@@ -97,46 +103,33 @@ npm install
 
 #### `GET /api/characters`
 
-  * **功能**: 获取所有可用角色的列表信息。
-  * **响应**: 返回一个包含所有角色对象的JSON数组。每个对象包含`id`, `name`, `description`, `imageUrl`, `voiceType`。
+- **功能**: 获取所有可用角色的列表信息。
+
+#### `POST /api/characters`
+
+- **功能**: 创建一个新的角色。
+- **Content-Type**: `multipart/form-data`
+- **表单字段**: `name`, `description`, `voiceType`, `image` (文件)。
+
+#### `GET /api/voices`
+
+- **功能**: 作为安全代理，从七牛云获取可用音色列表。
 
 #### `POST /api/chat`
 
-  * **功能**: 发送用户消息和对话历史，获取LLM生成的文本和情绪。
-  * **请求体**:
-    ```json
-    {
-      "characterId": "chen_xi",
-      "message": "你好",
-      "history": []
-    }
-    ```
-  * **响应体**:
-    ```json
-    {
-      "text": "哟，同桌，你这问好问得这么正式...",
-      "emotion": "挑逗"
-    }
-    ```
+- **功能**: 发送用户消息，获取包含文本、语音和对话ID的完整响应。
+- **请求体**: `{ "characterId", "message", "history", "conversationId" (可选) }`
+- **响应体**: `{ "response", "audioData", "conversationId" }`
 
-#### `POST /api/speech`
+#### `GET /api/conversations/<character_id>`
 
-  * **功能**: 根据文本、音色和情绪生成语音的Base64数据。
-  * **请求体**:
-    ```json
-    {
-      "text": "哟，同桌...",
-      "voiceType": "qiniu_zh_female_tmjxxy",
-      "emotion": "挑逗"
-    }
-    ```
-  * **响应体**:
-    ```json
-    {
-      "audioData": "BASE64_ENCODED_AUDIO_STRING"
-    }
-    ```
+- **功能**: 获取与特定角色的所有历史对话摘要列表。
 
-## TODO
+#### `POST /api/conversations/<conversation_id>/summarize`
 
-  * **用户自定义角色**: 开放UGC功能，允许用户创建和分享自己的AI角色。
+- **功能**: 结束当前对话，并为其生成、保存摘要。
+- **请求体**: `{ "history": [...] }`
+
+#### `DELETE /api/conversations/<conversation_id>`
+
+- **功能**: 删除指定的历史对话记录。
