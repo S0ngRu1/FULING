@@ -2,7 +2,6 @@
 
 > **想深入了解本项目的设计思路、用户分析和技术选型吗？请查阅我们的 [项目设计文档](PROJECT_DOCUMENT.md)。**
 
-
 **与你最爱的角色进行一场跨越时空的语音对话。**
 
 -----
@@ -41,10 +40,43 @@ https://github.com/user-attachments/assets/8225b249-8526-476f-a0c2-1a8a4ba3e94e
 | :--------- |:-----------------------------------------------------------------------------------| :------------------------------------------------------------- |
 | **前端** | **Vue 3** (Composition API), **Vite**, **Vue Router**, **Tailwind CSS**, **Axios** | 构建了一个响应式、组件化、样式精美的单页面应用（SPA）。          |
 | **后端** | **Python**, **Flask**                                                              | 提供了轻量、稳定且高性能的API服务。                             |
-| **AI - LLM** | **X-Ai/Grok 4 Fast**                                                                               | 负责核心的自然语言理解、角色扮演和情绪分析。                     |
+| **AI - LLM** | **Doubao-Seed 1.6 Flash**                                            | 负责核心的自然语言理解、角色扮演和情绪分析。                     |
 | **AI - TTS** | **七牛云 TTS**                                                                       | 提供高质量、多音色的语音合成服务，是实现情感化语音的关键。       |
 | **架构** | **前后端分离**, **服务层架构 (Services Layer)**                                              | 前后端职责清晰，后端逻辑被拆分为独立的服务模块，易于维护和扩展。 |
 | **错误处理** | **自定义异常**, **装饰器**                                                                 | 构建了统一、健壮的错误处理机制，提升了系统的稳定性。           |
+
+
+
+## 📂 项目文件结构
+
+```text
+FULING/
+├── app.py                  # 后端Flask应用的主入口
+├── backend/
+│   ├── characters/         # 存放所有角色的JSON配置文件
+│   ├── chroma_db/          # ChromaDB向量数据库的存储目录
+│   ├── config/             # 存放配置文件 (如TTS情感映射)
+│   ├── errors/             # 自定义异常和统一错误处理
+│   ├── knowledge_base/     # RAG系统的知识库源文件
+│   ├── services/           # 核心业务逻辑层
+│   │   ├── chat_service.py     # 处理与LLM的聊天交互
+│   │   ├── database_manager.py # 数据库操作(长程记忆)
+│   │   ├── rag_service.py      # RAG检索逻辑
+│   │   └── tts_service.py      # TTS语音合成逻辑
+│   ├── index_knowledge_base.py # (首次运行)索引知识库到向量数据库的脚本
+│   └── fuling_memory.db    # SQLite数据库文件
+├── frontend/
+│   ├── public/             # 存放图片等静态资源
+│   ├── src/
+│   │   ├── components/     # 可复用的Vue组件 (如历史记录)
+│   │   ├── views/          # 页级视图组件 (角色列表页、聊天页)
+│   │   ├── router/         # Vue Router配置
+│   │   ├── App.vue         # Vue应用的根组件
+│   │   └── main.js         # Vue应用的入口
+│   ├── package.json        # 前端项目依赖与脚本
+│   └── vite.config.js      # Vite构建配置
+└── requirements.txt        # 后端Python依赖列表
+```
 
 ## ⚙️ 本地部署与运行
 
