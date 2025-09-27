@@ -1,31 +1,63 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5123';
 const router = useRouter();
 
+// 表单数据
 const name = ref('');
 const description = ref('');
 const voiceType = ref('');
 const imageFile = ref(null);
 const imagePreview = ref(null);
-const voices = ref([]);
 
+// 音色列表和自定义下拉框状态
+const voices = ref([]);
+const isDropdownOpen = ref(false);
+const dropdownRef = ref(null); // 用于检测外部点击
+
+// 提交状态
 const isSubmitting = ref(false);
 const errorMessage = ref('');
 
+// --- 自定义下拉框逻辑 ---
+const selectedVoiceName = computed(() => {
+  const selected = voices.value.find(v => v.voice_type === voiceType.value);
+  return selected ? selected.voice_name : '请选择一个音色';
+});
+
+const toggleDropdown = () => {
+  isDropdownOpen.value = !isDropdownOpen.value;
+};
+
+const selectVoice = (voice) => {
+  voiceType.value = voice.voice_type;
+  isDropdownOpen.value = false;
+};
+
+const handleClickOutside = (event) => {
+    if (dropdownRef.value && !dropdownRef.value.contains(event.target)) {
+        isDropdownOpen.value = false;
+    }
+};
+
+// --- API 和文件处理 ---
 const fetchVoices = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/voices`);
-    voices.value = response.data.filter(v => v.voice_name.includes('小') || v.voice_name.includes('姐') || v.voice_name.includes('男') || v.voice_name.includes('女'));
+    voices.value = response.data;
     if (voices.value.length > 0) {
       voiceType.value = voices.value[0].voice_type;
     }
   } catch (error) {
     console.error("获取音色列表失败:", error);
-    errorMessage.value = "无法加载音色列表，请稍后再试。";
+    if (error.response && error.response.data && error.response.data.error) {
+        errorMessage.value = `加载音色列表失败: ${error.response.data.error.message}`;
+    } else {
+        errorMessage.value = "无法连接到后端服务，请确认服务已启动并检查网络连接。";
+    }
   }
 };
 
@@ -70,7 +102,15 @@ const handleSubmit = async () => {
   }
 };
 
-onMounted(fetchVoices);
+// --- 生命周期钩子 ---
+onMounted(() => {
+    fetchVoices();
+    document.addEventListener('mousedown', handleClickOutside);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('mousedown', handleClickOutside);
+});
 </script>
 
 <template>
@@ -91,17 +131,28 @@ onMounted(fetchVoices);
         <textarea v-model="description" id="description" rows="4" class="w-full bg-white/10 rounded-md border-white/20 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="描述角色的性格、背景故事、外貌等..."></textarea>
       </div>
 
+      <!-- 自定义下拉框 -->
       <div>
         <label for="voiceType" class="block text-sm font-medium text-white/80 mb-2">选择音色</label>
-        <select v-model="voiceType" id="voiceType" class="w-full bg-white/10 rounded-md border-white/20 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400 appearance-none">
-          <option v-for="voice in voices" :key="voice.voice_type" :value="voice.voice_type">{{ voice.voice_name }}</option>
-        </select>
+        <div class="relative" ref="dropdownRef">
+            <button @click="toggleDropdown" type="button" class="w-full flex justify-between items-center text-left bg-white/10 rounded-md border-white/20 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                <span class="truncate">{{ selectedVoiceName }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" :class="['h-5 w-5 transition-transform duration-200 text-white/50', isDropdownOpen ? 'rotate-180' : '']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <ul v-if="isDropdownOpen" class="absolute z-10 mt-1 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto custom-scrollbar border border-white/20">
+                <li v-for="voice in voices" :key="voice.voice_type" @click="selectVoice(voice)" class="px-4 py-2 text-white/80 hover:bg-yellow-400/10 hover:text-white cursor-pointer">
+                    {{ voice.voice_name }}
+                </li>
+            </ul>
+        </div>
       </div>
 
       <div>
         <label for="image" class="block text-sm font-medium text-white/80 mb-2">上传形象</label>
         <div class="mt-2 flex items-center gap-4">
-            <div class="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+            <div class="w-24 h-32 rounded-l bg-white/10 flex items-center justify-center overflow-hidden">
                 <img v-if="imagePreview" :src="imagePreview" alt="角色预览" class="w-full h-full object-cover">
                 <span v-else class="text-white/40 text-xs">预览</span>
             </div>
@@ -109,7 +160,7 @@ onMounted(fetchVoices);
         </div>
       </div>
 
-      <div v-if="errorMessage" class="text-red-400 text-sm">
+      <div v-if="errorMessage" class="text-red-400 text-sm p-4 bg-red-500/10 rounded-md">
           {{ errorMessage }}
       </div>
 
@@ -121,3 +172,22 @@ onMounted(fetchVoices);
     </form>
   </div>
 </template>
+
+<style scoped>
+/* 自定义滚动条样式 */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+</style>
+

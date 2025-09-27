@@ -75,6 +75,7 @@ def get_voice_list():
     headers = {"Authorization": f"Bearer {qiniu_api_key}"}
 
     response = requests.get(url, headers=headers)
+    logger.debug(response.text)
     response.raise_for_status()  # 确保请求成功
     return jsonify(response.json())
 
