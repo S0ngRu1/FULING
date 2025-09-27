@@ -8,6 +8,8 @@
 flask应用主文件
 """
 import os
+
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -19,7 +21,7 @@ load_dotenv()
 
 from backend.utils.logger import logger
 from backend.services import chat_service, character_manager, tts_service, database_manager
-from backend.errors.error_handlers import api_error_handler, register_error_handlers
+from backend.errors.error_handlers import api_error_handler
 
 
 # 初始化Flask应用
@@ -43,6 +45,38 @@ def get_characters_list():
     logger.info(f"成功加载 {len(characters)} 个角色。")
     return jsonify(characters)
 
+
+@app.route('/api/characters', methods=['POST'])
+@api_error_handler
+def create_new_character():
+    """处理新角色的创建请求"""
+    # 从 multipart/form-data 中获取数据
+    name = request.form.get('name')
+    description = request.form.get('description')
+    voice_type = request.form.get('voiceType')
+    image_file = request.files.get('image')
+
+    if not all([name, description, voice_type, image_file]):
+        raise InvalidAPIRequest("创建角色所需的所有字段均为必填项。")
+
+    character_manager.create_character(name, description, voice_type, image_file)
+    return jsonify({"status": "success", "message": "角色创建成功！"})
+
+@app.route('/api/voices', methods=['GET'])
+@api_error_handler
+def get_voice_list():
+    """从七牛云安全地获取音色列表"""
+    qiniu_api_key = os.getenv("API_KEY")
+    qiniu_base_url = os.getenv("API_BASE")
+    if not qiniu_api_key or not qiniu_base_url:
+        raise FulingException("TTS服务未在后端配置。", 500)
+
+    url = f"{qiniu_base_url}/voice/list"
+    headers = {"Authorization": f"Bearer {qiniu_api_key}"}
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()  # 确保请求成功
+    return jsonify(response.json())
 
 @app.route('/api/chat', methods=['POST'])
 @api_error_handler

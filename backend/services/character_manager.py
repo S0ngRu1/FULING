@@ -9,6 +9,8 @@
 """
 import os
 import json
+
+from backend.utils.chinese_to_pinyin import chinese_to_pinyin
 from backend.utils.logger import logger
 from backend.errors.exceptions import CharacterNotFound
 
@@ -81,3 +83,56 @@ def get_character_data(character_id: str) -> dict:
     except Exception as e:
         logger.error(f"加载角色数据文件 {filepath} 时出错: {e}")
         raise CharacterNotFound(f"角色 '{character_id}' 的配置文件无效或已损坏。")
+
+
+def create_character(name: str, description: str, voice_type: str, image_file):
+    """
+    创建并保存一个新的角色配置文件和图片。
+    """
+    logger.info(f"开始创建新角色: {name}")
+    # 1. 生成角色ID
+    if any('\u4e00' <= c <= '\u9fff' for c in name):  # 判断是否包含中文
+        pinyin_name = chinese_to_pinyin(name)
+        character_id = pinyin_name.replace(' ', '_').replace('.', '')
+    else:
+        character_id = name.lower().replace(' ', '_').replace('.', '')
+    # 2. 定义并保存图片
+    frontend_public_path = os.path.abspath(os.path.join(_SERVICE_DIR, '..', '..', 'frontend', 'public'))
+    image_dir = os.path.join(frontend_public_path, 'assets', 'characters')
+    os.makedirs(image_dir, exist_ok=True)
+
+    # 获取文件扩展名，默认为.png
+    _, ext = os.path.splitext(image_file.filename)
+    if not ext: ext = '.png'
+    image_filename = f"{character_id}{ext}"
+    image_path = os.path.join(image_dir, image_filename)
+    image_file.save(image_path)
+    logger.info(f"角色图片已保存至: {image_path}")
+    image_url = f"/assets/characters/{image_filename}"
+
+    # 3. 生成默认的 system_prompt
+    system_prompt = (
+        f"你现在扮演一个名为 {name} 的角色。你的性格和背景如下：{description}。\n\n"
+        "**最关键的指令**：你的所有回复都必须是一个格式正确的、单一的JSON对象，绝对不能包含任何JSON以外的额外文本。"
+        "此JSON对象必须包含两个键：\n"
+        "1. `\"response\"`: 你的对话内容，类型为字符串。\n"
+        "2. `\"emotion\"`: 你当前的情绪状态，类型为字符串。情绪可以是 [\"专注\", \"开心\", \"好奇\", \"严肃\", \"鼓励\"] 中的一个。"
+    )
+
+    # 4. 构建角色数据字典
+    character_data = {
+        "id": character_id,
+        "name": name,
+        "description": description,
+        "imageUrl": image_url,
+        "voiceType": voice_type,
+        "system_prompt": system_prompt
+    }
+
+    # 5. 创建并写入 .json 文件
+    json_filepath = os.path.join(CHARACTERS_DIR, f"{character_id}.json")
+    with open(json_filepath, 'w', encoding='utf-8') as f:
+        json.dump(character_data, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"角色配置文件已创建: {json_filepath}")
+

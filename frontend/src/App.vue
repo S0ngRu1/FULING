@@ -5,7 +5,7 @@ const route = useRoute();
 
 const navItems = [
   { name: "发现角色", path: "/", icon: (p) => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${p.isActive ? '#E5B84A' : 'currentColor'}"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>` },
-  { name: "创建角色", path: "#", icon: (p) => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${p.isActive ? '#E5B84A' : 'currentColor'}" stroke-width="2"><path d="M12 5v14m-7-7h14" /></svg>` },
+  { name: "创建角色", path: "/create", icon: (p) => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${p.isActive ? '#E5B84A' : 'currentColor'}" stroke-width="2"><path d="M12 5v14m-7-7h14" /></svg>` },
 ];
 </script>
 
