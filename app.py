@@ -23,7 +23,6 @@ from backend.utils.logger import logger
 from backend.services import chat_service, character_manager, tts_service, database_manager
 from backend.errors.error_handlers import api_error_handler
 
-
 # 初始化Flask应用
 app = Flask(__name__)
 CORS(app)
@@ -62,6 +61,7 @@ def create_new_character():
     character_manager.create_character(name, description, voice_type, image_file)
     return jsonify({"status": "success", "message": "角色创建成功！"})
 
+
 @app.route('/api/voices', methods=['GET'])
 @api_error_handler
 def get_voice_list():
@@ -78,6 +78,7 @@ def get_voice_list():
     logger.debug(response.text)
     response.raise_for_status()  # 确保请求成功
     return jsonify(response.json())
+
 
 @app.route('/api/chat', methods=['POST'])
 @api_error_handler
@@ -100,6 +101,7 @@ def chat():
     response_data['conversationId'] = conversation_id
     logger.info(f"成功生成对角色 '{character_id}' 的回复, 对话ID: {conversation_id}")
     return jsonify(response_data)
+
 
 @app.route('/api/speech', methods=['POST'])
 @api_error_handler
@@ -156,9 +158,7 @@ def summarize_and_end_conversation(conversation_id):
     return jsonify({"status": "success", "summary": summary})
 
 
-
-
 # --- 启动应用 ---
 if __name__ == '__main__':
     logger.info("Fuling应用启动...")
-    app.run(debug=True, port=5123)
+    app.run(debug=False, port=5123)
