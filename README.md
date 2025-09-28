@@ -14,19 +14,43 @@
 
 
 
+https://github.com/user-attachments/assets/3b8ab3de-61c3-4656-895b-ad9b55ce75d3
+
+
 ### 对话页展示
+
+
+https://github.com/user-attachments/assets/ffceb9dd-385a-4181-813e-db41af66e64b
+
 
 
 ### 英文对话展示
 
 
 
+https://github.com/user-attachments/assets/8f2a0dfa-9de0-4179-97af-07894246fad1
+
+
+
 ### 语音回放展示
+
+
+
+https://github.com/user-attachments/assets/a8e25874-a51b-42fb-86d6-8a65efd13cf6
+
 
 
 ### 保存对话功能
 
+
+https://github.com/user-attachments/assets/e210e48d-c263-4214-b681-60236fb50d93
+
+
 ### 情感化语音展示
+
+
+
+https://github.com/user-attachments/assets/c9592ddf-542b-4c2e-a9e3-6946d7b9ceb0
 
 
 
@@ -34,13 +58,32 @@
 
 
 
+https://github.com/user-attachments/assets/5283d128-f8c7-485a-a43a-91c6dc27d6f4
+
+
+
 ### 长程记忆功能展示
+
+
+
+https://github.com/user-attachments/assets/8ffe1ad0-f061-4004-8ad7-f0f8cd47818c
+
 
 
 ### 删除记忆功能展示
 
 
+
+
+https://github.com/user-attachments/assets/6a698692-a4ae-41c9-90b9-a12802f77f3f
+
+
+
 ### 用户自定义角色展示
+
+
+
+https://github.com/user-attachments/assets/e1ac3ba4-b6e3-41ba-8e31-5df0284b4df3
 
 
 
